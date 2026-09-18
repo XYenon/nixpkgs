@@ -49,16 +49,21 @@ let
   isCross = buildPlatform != hostPlatform;
   bootstrapPlatformKey = buildPlatform.system + lib.optionalString buildPlatform.isMusl "-musl";
   hostClang = pkgsBuildBuild.llvmPackages.clang;
+  buildLlvmPackages = if isCross then buildPackages.llvmPackages else llvmPackages;
 
   # Bun checks the LLVM major in scripts/build/tools.ts. Review llvmPackages when
   # it changes. The override accepts one bin directory, so join the LLVM outputs.
   llvmToolchain = symlinkJoin {
     name = "bun-llvm-toolchain";
     paths = [
-      llvmPackages.clang
-      llvmPackages.llvm
-      llvmPackages.lld
+      buildLlvmPackages.clang
+      buildLlvmPackages.llvm
+      buildLlvmPackages.lld
     ];
+    postBuild = lib.optionalString isCross ''
+      ln -s ${buildLlvmPackages.clang}/bin/${buildLlvmPackages.clang.targetPrefix}clang $out/bin/clang
+      ln -s ${buildLlvmPackages.clang}/bin/${buildLlvmPackages.clang.targetPrefix}clang++ $out/bin/clang++
+    '';
   };
 
   bootstrapAsset =
@@ -252,9 +257,9 @@ stdenv.mkDerivation {
     perl
     gitMinimal
     nasm
-    llvmPackages.clang
-    llvmPackages.llvm
-    llvmPackages.lld
+    buildLlvmPackages.clang
+    buildLlvmPackages.llvm
+    buildLlvmPackages.lld
     rustc
     cargo
   ]
